@@ -28,6 +28,7 @@ setup(
     author=about['__author__'],
     author_email=about['__author_email__'],
     classifiers=[
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: OS Independent',
