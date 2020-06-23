@@ -117,6 +117,19 @@ block.
      }
    }
 
+Logging Options
+^^^^^^^^^^^^^^^
+
+By default Arbiter will log to a :py:class:`~logging.StreamHandler`. Alternatively
+you may specify a logfile path for output, wherein Arbiter will employ a
+:py:class:`~logging.handlers.RotatingFileHandler` instead. The following options
+are supported:
+
+  :mode: Logging mode as string. One of info, debug, warn, error, critical.
+  :maxsize: Maximum filesize before log rotation. Default: 10M.
+  :path: Filepath to the desired log. Directory tree must exist.
+  :filemode: File write mode. Default: 'a'.
+  :encoding: File encoding, if other than UTF-8 is required.
 
 Authentication
 --------------

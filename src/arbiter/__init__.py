@@ -166,7 +166,6 @@ class WorkflowJobPool(LoggingMixin):
     def run(self, handler=None):
         func = self.handler if handler is None else handler
         sources = self.config['sources']
-        print(os.environ.copy())
 
         with multiprocessing.get_context('spawn').Pool(self.processes) as pool:
             self.log(f"{len(sources)} sources, {self.processes} processes", 'debug')
@@ -372,6 +371,7 @@ class Process(LoggingMixin):
             self.log('Sending error notifications')
             self.notify(self.config['notifications'], errors=errors)
 
+        self.log('Process complete')
 
     def pre(self):
         pass

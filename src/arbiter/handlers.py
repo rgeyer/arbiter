@@ -68,21 +68,19 @@ class FileHandler(BaseHandler):
     ]
 
     def __init__(self, config, **kwargs):
+        self.keepfile = False
+
         if 'keepfile' in kwargs:
             self.keepfile = kwargs['keepfile']
             del kwargs['keepfile']
-        else:
-            keepfile = False
 
         super().__init__(config, **kwargs)
 
-        resource = arbiter.parse_string(config['resource'])
-
-        if resource.startswith('file:'):
-            url = urlparse(resource)
+        if self.resource.startswith('file:'):
+            url = urlparse(self.resource)
             self.filename = url.path
         else:
-            self.filename = resource
+            self.filename = self.resource
 
     def get(self):
         """Data getter stub, to be implemented by inheriting sub-class."""
@@ -97,7 +95,8 @@ class FileHandler(BaseHandler):
         try:
             if not self.keepfile:
                 os.remove(self.filename)
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
 
 
