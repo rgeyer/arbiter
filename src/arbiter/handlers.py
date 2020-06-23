@@ -12,8 +12,7 @@ import arbiter
 
 
 class BaseHandler(LoggingMixin):
-    """Base handler construct
-
+    """
     Base handler interface definition. All handlers inherit from this class.
     Each handler must implement input and output methods based on intended use,
     as no distinction is made between inputs and outputs; thus input and output
@@ -27,50 +26,54 @@ class BaseHandler(LoggingMixin):
             in the `config` options.
 
     Attributes:
+        authentication (dict): Dictionary of authentication data.
         config (dict): Dictionary of handler specific configuration data.
         options (dict): Dictionary of handler specific keyword options to be
             passed to the handler subroutine.
+        resource (str): Resource identifier.
     """
     __slots__ = [
+        'authentication',
         'config',
-        'options'
+        'options',
+        'resource'
     ]
 
     def __init__(self, config, **kwargs):
         super().__init__()
 
         self.config = config
-        self.options = config.get('options', dict())
+        self.options = config.get('options', {})
+        self.authentication = config.get('authentication', None)
+        self.resource = arbiter.parse_string(config.get('resource', None))
 
         if kwargs:
             for k in kwargs:
                 self.options[k] = kwargs[k]
 
-    def get(self):
-        pass
-
-    def set(self):
-        pass
-
-    def atexit(self):
-        pass
-
 
 class FileHandler(BaseHandler):
-    """Base File Handler
-
+    """
     Generic file handler template. Provides filepath resolution to all file
     handlers, and removes files at program termination.
 
     Attributes:
         filename (str): Resolved filename path.
+        keepfile (bool): If ``True``, any file created will be saved at process end.
     """
 
     __slots__ = [
-        'filename'
+        'filename',
+        'keepfile'
     ]
 
     def __init__(self, config, **kwargs):
+        if 'keepfile' in kwargs:
+            self.keepfile = kwargs['keepfile']
+            del kwargs['keepfile']
+        else:
+            keepfile = False
+
         super().__init__(config, **kwargs)
 
         resource = arbiter.parse_string(config['resource'])
@@ -81,13 +84,25 @@ class FileHandler(BaseHandler):
         else:
             self.filename = resource
 
+    def get(self):
+        """Data getter stub, to be implemented by inheriting sub-class."""
+        pass
+
+    def set(self):
+        """Data setter stub, to be implemented by inheriting sub-class."""
+        pass
+
     def atexit(self):
-        os.remove(self.filename)
+        """Will attempt to remove the file created at exit."""
+        try:
+            if not self.keepfile:
+                os.remove(self.filename)
+        except Exception:
+            pass
 
 
 class CsvFile(FileHandler):
-    """CSV File Handler
-
+    """
     Provides CSV serialization and deserialization utilizing the standard Python
     CSV library. By default :py:class:`CsvFile` utilizes :py:meth:`~csv.DictReader`
     and :py:meth:`~csv.DictWriter` objects.
@@ -111,6 +126,7 @@ class CsvFile(FileHandler):
         super().__init__(config, **kwargs)
 
     def get(self):
+        """Uses :py:meth:`~csv.DictReader` to import file contents."""
         with open(self.filename, 'r') as fp:
             reader = csv.DictReader(fp, **self.options)
 
@@ -128,6 +144,7 @@ class CsvFile(FileHandler):
                 return [row for row in reader]
 
     def set(self, data):
+        """Uses :py:meth:`~csv.DictWriter` to export file contents."""
         if 'fieldnames' not in self.options:
             self.options['fieldnames'] = data[0].keys()
 
@@ -142,8 +159,7 @@ class CsvFile(FileHandler):
 
 
 class JsonFile(FileHandler):
-    """JSON File Handler
-
+    """
     Provides JSON serialization and deserialization utilizing the standard Python
     JSON library. By default :py:class:`JsonFile` utilizes :py:func:`~json.load`
     and :py:func:`~csv.dump` functions.
@@ -152,67 +168,75 @@ class JsonFile(FileHandler):
         super().__init__(config, **kwargs)
 
     def get(self):
+        """Uses :py:func:`~json.load` to import file contents."""
         with open(self.filename, 'r') as fp:
             return json.load(fp, **self.options)
 
     def set(self, data):
+        """Uses :py:func:`~json.dump` to export file contents."""
         with open(self.filename, 'w') as fp:
-            json.dump(fp, data, **self.options)
+            json.dump(data, fp, **self.options)
 
 
 class ConnectionHandler(BaseHandler):
-    """Base Connection Handler
-
-    Provides URL resolution to all connection handlers.
-
-
     """
+    Generic connection handler template.
+    """
+
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
+
+    def connect(self):
+        """Connection stub, to be implemented by inheriting sub-class."""
+        pass
+
+    def disconnect(self):
+        """Disconnection stub, to be implemented by inheriting sub-class."""
+        pass
+
+
+class HttpHandler(ConnectionHandler):
+    """
+    Handler template for HTTP & HTTPS connections. Provides URL component
+    resolution.
+
+    Attributes:
+        authority (str): URL authority component
+        host (str): Host or IP of the resource
+        path (str): Resource host path
+        query (str): Query string
+        secure (bool): Secure transport flag
+        port (int): Connection port on host
+    """
+
     __slots__ = [
-        'authentication',
-        'hostname',
+        'authority',
+        'host',
+        'port',
         'path',
         'query',
-        'resource',
         'secure'
     ]
 
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
 
-        self.resource = arbiter.parse_string(config['resource'])
         url = urlparse(self.resource)
 
-        self.hostname = url.netloc
+        self.authority = url.netloc
+        self.host = url.hostname
         self.path = url.path
         self.query = url.query
         self.secure = True if url.scheme == 'https' else False
-        self.authentication = config.get('authentication', None)
-
-    def connect(self):
-        pass
-
-    def disconnect(self):
-        pass
-
-
-class RESTHandler(ConnectionHandler):
-    """REST Handler
-
-    Generic REST handler template.
-    """
-
-    __slots__ = []
-
-    def __init__(self, config, **kwargs):
-        super().__init__(config, **kwargs)
+        self.port = url.port if url.port else (443 if self.secure else 80)
 
 
 class NotificationHandler(BaseHandler):
-    """Notification Handler
-
+    """
     Generic notification handler template.
 
     Attributes:
+        errors (list): List of error messages collected during processing.
         files (list): List of files which will be sent with the notification.
     """
 
@@ -226,24 +250,24 @@ class NotificationHandler(BaseHandler):
             self.files = kwargs['files']
             del kwargs['files']
         else:
-            self.files = None
+            self.files = []
 
         if 'errors' in kwargs:
             self.errors = kwargs['errors']
             del kwargs['errors']
         else:
-            self.errors = None
+            self.errors = []
 
         super().__init__(config, **kwargs)
 
     def send(self):
+        """Notification action stub, to be implemented by inheriting sub-class."""
         pass
 
 
 class EmailHandler(NotificationHandler):
-    """Email Message Notification Handler
-
-    Sends email message notifications.
+    """
+    Sends email message notifications using an STMP server.
 
     Attributes:
         emailheaders (list): List of email headers a user may specify in the
@@ -257,6 +281,11 @@ class EmailHandler(NotificationHandler):
 
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        self.default_body_error = """Errors where encountered while processing data:
+
+        {errors}
+        """
 
         self.emailheaders = [
             'orig-date',
@@ -272,10 +301,10 @@ class EmailHandler(NotificationHandler):
             'optional-field'
         ]
 
-        self.smtp = dict()
+        self.smtp = {}
 
         if 'smtp' not in self.options:
-            self.options['smtp'] = dict()
+            self.options['smtp'] = {}
 
         self.smtp = {
             'host': self.options['smtp'].get('host', 'localhost'),
@@ -287,11 +316,17 @@ class EmailHandler(NotificationHandler):
         }
 
         if self.options['smtp'].get('authentication', None):
-            import base64
+            import arbiter
+            from arbiter import auth
 
-            u, p = (base64.b64decode(datamove.get_auth(self.authentication))).decode().split(':')
-            self.smtp['user'] = u
-            self.smtp['pass'] = p
+            try:
+                type = self.options['smtp']['authentication']['type']
+                auth = arbiter.AUTH[type](self.options['smtp']['authentication'])
+                u, p = base64.b64decode(auth).decode().split(':')
+                self.smtp['user'] = u
+                self.smtp['pass'] = p
+            except Exception:
+                pass
 
         for k in self.smtp.keys():
             if k in self.options['smtp']:
@@ -306,10 +341,10 @@ class EmailHandler(NotificationHandler):
         msg = EmailMessage()
 
         if self.errors:
-            error_msg = '\n\n'.join(errors)
+            error_msg = '\n\n'.join(self.errors)
 
             if 'body_error' not in self.options['email']:
-                body = arbiter.BODY_ERROR
+                body = self.default_body_error
             else:
                 body = self.options['email']['body_error']
 
@@ -350,7 +385,8 @@ class EmailHandler(NotificationHandler):
 
         with klass(host=self.smtp['host'], **self.options['smtp']) as smtp:
             if self.smtp['tls']:
-                smtp.starttls()
+                tlsargs = {x: self.options['smtp'][x] for x in self.options['smtp'] if x in ['keyfile', 'certfile']}
+                smtp.starttls(**tlsargs)
 
             if self.smtp['user'] and self.smtp['pass']:
                 smtp.login(self.smtp['user'], self.smtp['pass'])

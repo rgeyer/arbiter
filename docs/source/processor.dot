@@ -1,0 +1,52 @@
+digraph processor {
+  label="Processor Flow";
+  labelloc=top;
+  rankdir=LR;
+  compound=true;
+  splines=line;
+
+  in1 [label="Input 1" shape=cylinder fillcolor=chartreuse3, style=filled];
+  in2 [label="Input 2", shape=note, fillcolor=chartreuse3, style=filled];
+  in3 [label="Input 3", shape=note, fillcolor=chartreuse3, style=filled];
+  in4 [label="Input N", fillcolor=chartreuse3, style=filled];
+  merger [label="Merger", shape=diamond, style=filled];
+
+  // outputs
+  subgraph cluster_1 {
+    label="Outputs";
+    out1 [label="1", shape=note, fillcolor=gold3, style=filled];
+    outN [label="N", shape=note, fillcolor=gold3, style=filled];
+    noteA1 [label="File Notification 1", fontsize=8.0, color=purple4, style=bold];
+    noteAn [label="File Notification N", fontsize=8.0, color=purple4, style=bold];
+    noteB1 [label="File Notification 1", fontsize=8.0, color=purple4, style=bold];
+    noteBn [label="File Notification N", fontsize=8.0, color=purple4, style=bold];
+
+    out1 -> outN [style=dotted];
+    noteA1 -> out1 [dir=back]
+    noteAn -> noteA1 [dir=back, style=dotted];
+    noteB1 -> outN [dir=back]
+    noteBn -> noteB1 [dir=back, style=dotted];
+
+    {rank=same; noteAn; noteA1; out1;}
+    {rank=same; noteBn; noteB1; outN;}
+  }
+
+  // global notifications
+  subgraph cluster_2 {
+    label="Process Notifications";
+    note1 [label="1", color=purple4, style=bold];
+    noteN [label="N", color=purple4, style=bold];
+
+    note1 -> noteN [style=dotted];
+  }
+
+  // inputs
+  edge [samehead=input];
+  {in1; in2; in3; in4} -> merger [arrowhead=none];
+  edge [];
+
+  // cluster edges
+  merger -> out1 [label="pre()", lhead=cluster_1, fontcolor=red4];
+  outN -> note1 [label="post()", ltail=cluster_1, lhead=cluster_2, fontcolor=red4];
+
+}

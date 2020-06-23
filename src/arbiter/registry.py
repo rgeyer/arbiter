@@ -5,6 +5,9 @@ from arbiter.exceptions import RegistrationError
 
 
 class Registry:
+    """The registry class is a special :py:class:`dict` used for tracking
+    registered types, and preventing name collisions.
+    """
     __slots__ = [
         '__registry',
         '__required'
@@ -31,12 +34,30 @@ class Registry:
         return self.__registry.__str__()
 
     def register(self, name, ref):
+        """Register a new named reference.
+
+        Args:
+            name: Name to use for the reference.
+            ref: Reference to register.
+
+        Raises:
+            RegistrationError: If the `name` is already registered.
+        """
         if name.upper() in self.__registry:
             raise RegistrationError(f"Name '{name}' is already registered.")
         else:
             self.__registry[name.upper()] = ref
 
     def unregister(self, name):
+        """Unregister a named reference.
+
+        Args:
+            name: Name of the reference.
+
+        Raises:
+            RegistrationError: If the `name` does not exist or is a protected
+                system name.
+        """
         if name.upper() not in self.__required:
             del self.__registry[name.upper()]
         else:
