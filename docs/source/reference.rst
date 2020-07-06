@@ -2,7 +2,7 @@
 API Reference
 =============
 
-Arbiter Module
+arbiter Module
 ==============
 
 .. automodule:: arbiter

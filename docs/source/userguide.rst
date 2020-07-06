@@ -17,7 +17,7 @@ Core Concepts
 Processor
 ---------
 
-The core of Arbiter is the :py:class:`~arbiter.Process` class, a multi-processing
+The core of arbiter is the :py:class:`~arbiter.Process` class, a multi-processing
 orchestrator that collects inputs, performs data manipulation, feeds outputs, and
 sends notifications. The processor itself is agnostic to the actual connections,
 data, and data translations. All aspects of data handling are the responsibility
@@ -32,7 +32,7 @@ Handlers
 Handlers perform all the discrete work within a data process flow. This includes
 data ingestion, translation, output, notifications, and so forth. In theory any
 handler could be used for an input or output, provided it contains the requisite
-*get()* and *set()* methods. Arbiter broadly defines three logically distinct types
+*get()* and *set()* methods. arbiter broadly defines three logically distinct types
 of handlers: :py:class:`~arbiter.handlers.FileHandler`, :py:class:`~arbiter.handlers.ConnectionHandler`, and :py:class:`~arbiter.handlers.NotificationHandler`.
 
 Generally speaking a :py:class:`~arbiter.handlers.FileHandler` should implement
@@ -45,7 +45,7 @@ stubs for these methods.
 Configuration
 -------------
 
-Arbiter utilizes a structured JSON document consisting of blocks and directives
+arbiter utilizes a structured JSON document consisting of blocks and directives
 for all processors. Directives are key-value pairs, while blocks are collections
 of directives or other data, represented as JSON objects. There are four block
 definitions, of which two are required: *sources* (required), *outputs* (required),
@@ -97,8 +97,8 @@ not strictly required as in the case of the :py:class:`~arbiter.handlers.Notific
       }
   }
 
-Handler specific options are defined in the *options* block. These parameters are
-used internally by the handler, and often passed directly to the underlying
+Handler specific directives are defined in the *options* block. These parameters
+are used internally by the handler, and often passed directly to the underlying
 third-party library the handler uses. Handlers have flexibility to define any
 options required, and to document their use. Some handlers that have complex
 interactions with multiple libraries, such as the :py:class:`~arbiter.handlers.EmailHandler`
@@ -120,8 +120,8 @@ block.
 Logging Options
 ^^^^^^^^^^^^^^^
 
-By default Arbiter will log to a :py:class:`~logging.StreamHandler`. Alternatively
-you may specify a logfile path for output, wherein Arbiter will employ a
+By default arbiter will log to a :py:class:`~logging.StreamHandler`. Alternatively
+you may specify a logfile path for output, wherein arbiter will employ a
 :py:class:`~logging.handlers.RotatingFileHandler` instead. The following options
 are supported:
 
@@ -134,7 +134,7 @@ are supported:
 Authentication
 --------------
 
-Stored credentials of any kind pose a security risk. Arbiter provides multiple
+Stored credentials of any kind pose a security risk. arbiter provides multiple
 built-in methods for passing simple credentials for testing, and can be extended
 to support additional credentialing systems as necessary by handlers. Although
 there is no requirement to use the :py:attr:`~arbiter.AUTH` registry for custom
@@ -215,7 +215,7 @@ Process Objects
 
 .. graphviz:: processor.dot
 
-The :py:class:`~arbiter.Process` class is the workhorse of the Arbiter package.
+The :py:class:`~arbiter.Process` class is the workhorse of the arbiter package.
 Inputs are pulled in parallel and aggregated using the :py:meth:`~arbiter.Process.merge_results`
 method. The combined result set is then sequentially passed to each output handler.
 An output handler may have one or more notifiers associated to it, which will
@@ -296,6 +296,11 @@ The BaseHandler serves as the foundation of all handler types.
 
 .. class:: BaseHandler
 
+   Provides configuration loading to all handlers, and establishes the baseline
+   attributes.
+
+   :param config: Dictionary of handler configuration data.
+
    .. attribute:: BaseHandler.config
 
       The entire handler configuration block, as provided by the calling :py:class:`~arbiter.Process`
@@ -319,10 +324,6 @@ The BaseHandler serves as the foundation of all handler types.
       substitution parsing has been performed. This will usually correspond to
       an URI, though it is not strictly required.
 
-   .. method:: BaseHandler.__ini__(config, **kwargs)
-
-      Initializes the handler, loading the configuration data and storing options.
-
    .. method:: BaseHandler.atexit()
 
       Registered with the :py:mod:`atexit` module after the :py:meth:`~arbiter.handlers.BaseHandler.set`
@@ -342,16 +343,8 @@ default.
 
    .. attribute:: FileHandler.filename
 
-      Output file to be written to.
-
-   .. attribute:: FileHandler.keepfile
-
-      If ``True`` the file will not be removed when the handler's :py:meth:`~arbiter.handlers.BaseHandler.atexit`
-      method is called. The default value is ``False``.
-
-   .. method:: FileHandler.__init__(config, **kwargs)
-
-      Initializes the handler, loading the configuration data and storing options.
+      For output handlers, this is the output file or file-like resource to be
+      written to.
 
    .. method:: FileHandler.get()
 
@@ -382,14 +375,8 @@ and :py:class:`~csv.DictWriter` objects.
 
 .. class:: CsvFile
 
-   .. attribute:: CsvFile.fields
-
-      When set, this list acts as a whitelist of fields to filter for and keep.
-      If left blank, all fields are kept. This is not to be confused with the
-      :py:class:`~csv.DictWriter` *fieldnames* parameter, which is automatically
-      supplied by the *set()* method.
-
-      Default: ``None``
+   :param fieldnames:  Input / output whitelist of fields to filter on. All fields
+      are kept if value is ``None``. (Default: ``None``)
 
    .. method:: CsvFile.__init__(config, **kwargs)
 
@@ -443,7 +430,7 @@ connection, or other service interface.
 |
 
 HttpHandler
------------
+^^^^^^^^^^^
 
 The :py:class:`~arbiter.handlers.HttpHandler` provides additional properties
 suitable for HTTP and HTTPS connection implementations. Notably, the `userinfo`

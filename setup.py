@@ -28,7 +28,6 @@ setup(
     author_email=about['__author_email__'],
     url='https://github.com/rastern/arbiter',
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: OS Independent',

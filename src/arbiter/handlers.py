@@ -59,21 +59,13 @@ class FileHandler(BaseHandler):
 
     Attributes:
         filename (str): Resolved filename path.
-        keepfile (bool): If ``True``, any file created will be saved at process end.
     """
 
     __slots__ = [
-        'filename',
-        'keepfile'
+        'filename'
     ]
 
     def __init__(self, config, **kwargs):
-        self.keepfile = False
-
-        if 'keepfile' in kwargs:
-            self.keepfile = kwargs['keepfile']
-            del kwargs['keepfile']
-
         super().__init__(config, **kwargs)
 
         if self.resource.startswith('file:'):
@@ -93,7 +85,7 @@ class FileHandler(BaseHandler):
     def atexit(self):
         """Will attempt to remove the file created at exit."""
         try:
-            if not self.keepfile:
+            if not self.options['keepfile']:
                 os.remove(self.filename)
         except Exception as e:
             print(e)
@@ -106,21 +98,18 @@ class CsvFile(FileHandler):
     CSV library. By default :py:class:`CsvFile` utilizes :py:meth:`~csv.DictReader`
     and :py:meth:`~csv.DictWriter` objects.
 
+    Notes:
+        v1.1.0 - fields is deprecated, and will be removed in v2.0. Use fieldnames.
+
     Args:
-        fields (list): Input whitelist of fields to filter. All fields are kept
+        fieldnames (list): Input/output whitelist of fields to filter. All fields are kept
             if value is None. (Default: ``None``)
-
-    Attributes:
-        fields (list): Input whitelist of fields to filter.
     """
-    __slots__ = ['fields']
-
     def __init__(self, config, **kwargs):
+        # deprecated - remove in 2.0, for backwards compatibility
         if 'fields' in kwargs:
-            self.fields = kwargs['fields']
+            kwargs['fieldnames'] = kwargs['fields']
             del kwargs['fields']
-        else:
-            self.fields = None
 
         super().__init__(config, **kwargs)
 
@@ -129,12 +118,12 @@ class CsvFile(FileHandler):
         with open(self.filename, 'r') as fp:
             reader = csv.DictReader(fp, **self.options)
 
-            if self.fields:
+            if self.options['fieldnames']:
                 data = []
 
                 for row in reader:
                     for f in row.keys():
-                        if f not in self.fields:
+                        if f not in self.options['fieldnames']:
                             del row[f]
                     data.append(row)
 
@@ -147,6 +136,7 @@ class CsvFile(FileHandler):
         if 'fieldnames' not in self.options:
             self.options['fieldnames'] = data[0].keys()
 
+        # extrasaction is explicitly disabled here
         self.options['extrasaction'] = 'ignore'
 
         with open(self.filename, 'w') as fp:
@@ -267,26 +257,23 @@ class NotificationHandler(BaseHandler):
 class EmailHandler(NotificationHandler):
     """
     Sends email message notifications using an STMP server.
-
-    Attributes:
-        emailheaders (list): List of email headers a user may specify in the
-            config.
-        smtp (dict): Dictionary of SMTP options.
     """
     __slots__ = [
-        'emailheaders',
-        'smtp'
+        'default_body_error',
+        '_emailheaders',
+        '_smtpexclude'
     ]
 
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
 
-        self.default_body_error = """Errors where encountered while processing data:
+        self.default_body_error = """
+        Errors where encountered while processing data:
 
         {errors}
         """
 
-        self.emailheaders = [
+        self._emailheaders = [
             'orig-date',
             'from',
             'sender',
@@ -300,19 +287,25 @@ class EmailHandler(NotificationHandler):
             'optional-field'
         ]
 
-        self.smtp = {}
+        self._smtpexclude = [
+            'host',
+            'ssl',
+            'tls',
+            'lmtp',
+            'username',
+            'password',
+            'authentication'
+        ]
 
         if 'smtp' not in self.options:
-            self.options['smtp'] = {}
-
-        self.smtp = {
-            'host': self.options['smtp'].get('host', 'localhost'),
-            'ssl': self.options['smtp'].get('ssl', False),
-            'tls': self.options['smtp'].get('tls', False),
-            'lmtp': self.options['smtp'].get('lmtp', False),
-            'user': self.options['smtp'].get('username', None),
-            'pass': self.options['smtp'].get('password', None)
-        }
+            self.options['smtp'] = {
+                'host': 'localhost',
+                'ssl': False,
+                'tls': False,
+                'lmtp': False,
+                'username': None,
+                'password': None
+            }
 
         if self.options['smtp'].get('authentication', None):
             import arbiter
@@ -322,14 +315,10 @@ class EmailHandler(NotificationHandler):
                 type = self.options['smtp']['authentication']['type']
                 auth = arbiter.AUTH[type](self.options['smtp']['authentication'])
                 u, p = base64.b64decode(auth).decode().split(':')
-                self.smtp['user'] = u
-                self.smtp['pass'] = p
+                self.options['smtp']['username'] = u
+                self.options['smtp']['password'] = p
             except Exception:
                 pass
-
-        for k in self.smtp.keys():
-            if k in self.options['smtp']:
-                del self.options['smtp'][k]
 
     def send(self):
         from email.message import EmailMessage
@@ -353,7 +342,7 @@ class EmailHandler(NotificationHandler):
 
         # write headers
         for k in self.options['email']:
-            if k in self.emailheaders:
+            if k in self._emailheaders:
                 if isinstance(self.options['email'][k], list):
                     msg[k] = arbiter.parse_string(COMMASPACE.join(self.options['email'][k]))
                 else:
@@ -375,19 +364,21 @@ class EmailHandler(NotificationHandler):
                                subtype=subtype,
                                filename=os.path.basename(file))
 
-        if self.smtp['ssl']:
+        if self.options['smtp']['ssl']:
             klass = smtplib.SMTP_SSL
-        elif self.smtp['lmtp']:
+        elif self.options['smtp']['lmtp']:
             klass = smtplib.LMTP
         else:
             klass = smtplib.SMTP
 
-        with klass(host=self.smtp['host'], **self.options['smtp']) as smtp:
-            if self.smtp['tls']:
+
+        opt = {k: v for k, v in self.options.items() if k not in self._smtpexclude}
+        with klass(host=self.options['smtp']['host'], **opt) as smtp:
+            if self.options['smtp']['tls']:
                 tlsargs = {x: self.options['smtp'][x] for x in self.options['smtp'] if x in ['keyfile', 'certfile']}
                 smtp.starttls(**tlsargs)
 
-            if self.smtp['user'] and self.smtp['pass']:
-                smtp.login(self.smtp['user'], self.smtp['pass'])
+            if self.options['smtp']['username'] and self.options['smtp']['password']:
+                smtp.login(self.options['smtp']['username'], self.options['smtp']['password'])
 
             smtp.send_message(msg)
