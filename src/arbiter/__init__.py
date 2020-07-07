@@ -241,10 +241,12 @@ class Process(LoggingMixin):
             umsg.log(record.message, level=record.levelname, prefix=record.process, logger=logger)
 
     @staticmethod
-    def default_worker(source, *args):
+    def default_worker(source, config, logger):
         try:
             return source.get()
-        except Exception:
+        except Exception as e:
+            if logger:
+                logger.exception('Error while retrieving source data:')
             return None
 
     def raise_error(self, msg, exc, exc_info=None):

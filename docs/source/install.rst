@@ -11,7 +11,7 @@ Installation
 Package Install
 ===============
 
-The simplest and most common way to install *Arbiter* is to utilize the PyPI_
+The simplest and most common way to install *arbiter* is to utilize the PyPI_
 repository to obtain the latest release. The Python command-line package installer
 pip will automatically resolve dependencies and install any unmet requirements
 provided you have an active internet connection.
@@ -41,9 +41,9 @@ Building from Source
 ====================
 
 Those who wish to, or otherwise are required to build from source *must* be familiar
-with Python packaging techniques. *Arbiter* uses the standard Python build procedure
+with Python packaging techniques. *arbiter* uses the standard Python build procedure
 as outlined by Python's official `documentation <https://packaging.python.org/tutorials/packaging-projects/>`_
-and standard build tools, chiefly setuptools_. The source code for *Arbiter* is
+and standard build tools, chiefly setuptools_. The source code for *arbiter* is
 publicly hosted on GitHub in the official repository_. Additional support for
 custom build or alternative package build processes is not available.
 
@@ -51,7 +51,7 @@ custom build or alternative package build processes is not available.
 Requirements
 ============
 
-*Arbiter* is designed to work with Python 3.6 and higher. Additionally, the
+*arbiter* is designed to work with Python 3.6 and higher. Additionally, the
 following packages are required:
 
 - requests >= 2.21.0

@@ -1,10 +1,10 @@
 .. # Links
 
 =======
-Arbiter
+arbiter
 =======
 
-*Arbiter* is an extensible data processing framework intended to be flexible and
+*arbiter* is an extensible data processing framework intended to be flexible and
 lightweight.
 
 
