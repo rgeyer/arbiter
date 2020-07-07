@@ -85,7 +85,7 @@ class FileHandler(BaseHandler):
     def atexit(self):
         """Will attempt to remove the file created at exit."""
         try:
-            if not self.options['keepfile']:
+            if not self.options.get('keepfile', False):
                 os.remove(self.filename)
         except Exception as e:
             print(e)
@@ -105,18 +105,25 @@ class CsvFile(FileHandler):
         fieldnames (list): Input/output whitelist of fields to filter. All fields are kept
             if value is None. (Default: ``None``)
     """
+    __slots__ = ['__options_exclude']
+
     def __init__(self, config, **kwargs):
         # deprecated - remove in 2.0, for backwards compatibility
         if 'fields' in kwargs:
             kwargs['fieldnames'] = kwargs['fields']
             del kwargs['fields']
 
+        self.__options_exclude = ['keepfile', 'fields']
+
         super().__init__(config, **kwargs)
+
+    def __options(self):
+        return {k: v for k, v in self.options.items() if k not in self.__options_exclude}
 
     def get(self):
         """Uses :py:meth:`~csv.DictReader` to import file contents."""
         with open(self.filename, 'r') as fp:
-            reader = csv.DictReader(fp, **self.options)
+            reader = csv.DictReader(fp, **self.__options())
 
             if self.options['fieldnames']:
                 data = []
@@ -140,7 +147,7 @@ class CsvFile(FileHandler):
         self.options['extrasaction'] = 'ignore'
 
         with open(self.filename, 'w') as fp:
-            writer = csv.DictWriter(fp, **self.options)
+            writer = csv.DictWriter(fp, **self.__options())
             writer.writeheader()
 
             for row in data:
@@ -287,11 +294,13 @@ class EmailHandler(NotificationHandler):
             'optional-field'
         ]
 
-        self._smtpexclude = [
+        self.__smtp_exclude = [
             'host',
             'ssl',
             'tls',
             'lmtp',
+            'keyfile',
+            'certfile',
             'username',
             'password',
             'authentication'
@@ -319,6 +328,9 @@ class EmailHandler(NotificationHandler):
                 self.options['smtp']['password'] = p
             except Exception:
                 pass
+
+    def __smtp_options(self):
+        return {k: v for k, v in self.options['smtp'].items() if k not in self.__smtp_exclude}
 
     def send(self):
         from email.message import EmailMessage
@@ -371,9 +383,7 @@ class EmailHandler(NotificationHandler):
         else:
             klass = smtplib.SMTP
 
-
-        opt = {k: v for k, v in self.options.items() if k not in self._smtpexclude}
-        with klass(host=self.options['smtp']['host'], **opt) as smtp:
+        with klass(host=self.options['smtp']['host'], **self.__smtp_options()) as smtp:
             if self.options['smtp']['tls']:
                 tlsargs = {x: self.options['smtp'][x] for x in self.options['smtp'] if x in ['keyfile', 'certfile']}
                 smtp.starttls(**tlsargs)
