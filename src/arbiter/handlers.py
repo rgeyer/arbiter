@@ -62,6 +62,7 @@ class FileHandler(BaseHandler):
     """
 
     __slots__ = [
+        '_options_exclude',
         'filename'
     ]
 
@@ -73,6 +74,11 @@ class FileHandler(BaseHandler):
             self.filename = url.path
         else:
             self.filename = self.resource
+
+        self._options_exclude = ['keepfile']
+
+    def _options(self):
+        return {k: v for k, v in self.options.items() if k not in self._options_exclude}
 
     def get(self):
         """Data getter stub, to be implemented by inheriting sub-class."""
@@ -105,25 +111,20 @@ class CsvFile(FileHandler):
         fieldnames (list): Input/output whitelist of fields to filter. All fields are kept
             if value is None. (Default: ``None``)
     """
-    __slots__ = ['__options_exclude']
-
     def __init__(self, config, **kwargs):
         # deprecated - remove in 2.0, for backwards compatibility
         if 'fields' in kwargs:
             kwargs['fieldnames'] = kwargs['fields']
             del kwargs['fields']
 
-        self.__options_exclude = ['keepfile', 'fields']
-
         super().__init__(config, **kwargs)
 
-    def __options(self):
-        return {k: v for k, v in self.options.items() if k not in self.__options_exclude}
+        self._options_exclude.append('fields')
 
     def get(self):
         """Uses :py:meth:`~csv.DictReader` to import file contents."""
         with open(self.filename, 'r') as fp:
-            reader = csv.DictReader(fp, **self.__options())
+            reader = csv.DictReader(fp, **self._options())
 
             if self.options['fieldnames']:
                 data = []
@@ -147,7 +148,7 @@ class CsvFile(FileHandler):
         self.options['extrasaction'] = 'ignore'
 
         with open(self.filename, 'w') as fp:
-            writer = csv.DictWriter(fp, **self.__options())
+            writer = csv.DictWriter(fp, **self._options())
             writer.writeheader()
 
             for row in data:
@@ -166,12 +167,12 @@ class JsonFile(FileHandler):
     def get(self):
         """Uses :py:func:`~json.load` to import file contents."""
         with open(self.filename, 'r') as fp:
-            return json.load(fp, **self.options)
+            return json.load(fp, **self._options())
 
     def set(self, data):
         """Uses :py:func:`~json.dump` to export file contents."""
         with open(self.filename, 'w') as fp:
-            json.dump(data, fp, **self.options)
+            json.dump(data, fp, **self._options())
 
 
 class ConnectionHandler(BaseHandler):
