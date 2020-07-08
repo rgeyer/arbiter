@@ -102,8 +102,9 @@ class WorkflowJobPool(LoggingMixin):
         self.success = 0
         self.handler = handler
         self.logqueue = logqueue
-        self.sleep_interval = 10
-        self.timeout = config.get('process_timeout', 60)
+        self.sleep_interval = config.get('sleep_interval', 10)
+        self.report_timeout = config.get('report_timeout', 300)
+        self.response_timeout = config.get('response_timeout', 60)
         self.results = defaultdict(lambda: None)
 
         cpus = multiprocessing.cpu_count()*2 if processes is None else processes
@@ -129,7 +130,12 @@ class WorkflowJobPool(LoggingMixin):
             return True
 
         for k in self.results:
-            if not self.results[k].ready():
+            #if not self.results[k].ready():
+            #   return False
+            try:
+                if self.results[k].successful():
+                    continue
+            except (ValueError, AssertionError):
                 return False
 
         return True
@@ -138,7 +144,7 @@ class WorkflowJobPool(LoggingMixin):
         start = timer()
         elapsed = 0
 
-        while not self.is_complete and elapsed < self.timeout:
+        while not self.is_complete and elapsed < self.report_timeout:
             time.sleep(self.sleep_interval)
             elapsed = int(str(datetime.timedelta(seconds=int(timer() - start)).total_seconds())[:-2])
 
@@ -149,10 +155,10 @@ class WorkflowJobPool(LoggingMixin):
         for k in self.results:
             try:
                 msg = None
-                res = self.results[k].get()
+                res = self.results[k].get(self.response_timeout)
                 results.append(res)
             except multiprocessing.context.TimeoutError:
-                msg = f"Workflow timeout exceeded for '{k}'"
+                msg = f"Workflow results timeout exceeded for '{k}'"
             except Exception as e:
                 msg = f"Workflow for '{k}' failed"
                 self.log(traceback.format_exc(), 'error')
@@ -183,6 +189,8 @@ class WorkflowJobPool(LoggingMixin):
                                                self.logqueue,
                                                os.environ.copy())
                                      )
+                else:
+                    self.log(f"No registered handler called '{s['handler']}'")
 
             self.wait()
         # pool closed ---
@@ -246,7 +254,8 @@ class Process(LoggingMixin):
             return source.get()
         except Exception as e:
             if logger:
-                logger.exception('Error while retrieving source data:')
+                logger.exception(f"Error retrieving source data: {e}")
+
             return None
 
     def raise_error(self, msg, exc, exc_info=None):
@@ -279,11 +288,14 @@ class Process(LoggingMixin):
             except AttributeError:
                 self.raise_error(f"Missing required send() method", AttributeError)
             except Exception as e:
-                self.log(f"Unable to send notification: {e}")
+                self.log(f"Unable to send notification: {e}", exc_info=True)
 
     def merge_results(self, results):
         """Merges results returned from input handlers into a single result set."""
         data = []
+
+        if not results:
+            self.log('No data returned')
 
         for r in results:
             data.extend(r)
