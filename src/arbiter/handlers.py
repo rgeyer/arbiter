@@ -377,19 +377,20 @@ class EmailHandler(NotificationHandler):
                                subtype=subtype,
                                filename=os.path.basename(file))
 
-        if self.options['smtp']['ssl']:
+        if self.options['smtp'].get('ssl', False):
             klass = smtplib.SMTP_SSL
-        elif self.options['smtp']['lmtp']:
+        elif self.options['smtp'].get('lmtp', False):
             klass = smtplib.LMTP
         else:
             klass = smtplib.SMTP
 
         with klass(host=self.options['smtp']['host'], **self.__smtp_options()) as smtp:
-            if self.options['smtp']['tls']:
+            if self.options['smtp'].get('tls', False):
                 tlsargs = {x: self.options['smtp'][x] for x in self.options['smtp'] if x in ['keyfile', 'certfile']}
                 smtp.starttls(**tlsargs)
 
-            if self.options['smtp']['username'] and self.options['smtp']['password']:
+            if self.options['smtp'].get('username', None) \
+            and self.options['smtp'].get('password', None):
                 smtp.login(self.options['smtp']['username'], self.options['smtp']['password'])
 
             smtp.send_message(msg)
