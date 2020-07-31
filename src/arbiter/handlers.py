@@ -5,6 +5,7 @@ import csv
 import json
 import os
 
+import boto3
 from urllib.parse import urlparse
 from umsg.mixins import LoggingMixin
 import arbiter
@@ -96,7 +97,6 @@ class FileHandler(BaseHandler):
         except Exception as e:
             print(e)
             pass
-
 
 class CsvFile(FileHandler):
     """
@@ -394,3 +394,63 @@ class EmailHandler(NotificationHandler):
                 smtp.login(self.options['smtp']['username'], self.options['smtp']['password'])
 
             smtp.send_message(msg)
+
+
+class S3Handler(NotificationHandler):
+    """
+    Uploads generated files and/or error logfile to S3 bucket.
+    """
+    __slots__ = [
+        'default_body_error',
+
+    ]
+
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
+
+        self.default_error_log = """
+        Errors where encountered while processing data:
+
+        {errors}
+        """
+
+        self.__s3_exclude = [
+            "region",
+            "bucket",
+            "prefix",
+            "authentication"
+        ]
+
+        if 'prefix' in self.options['s3']:
+            self._prefix = arbiter.parse_string(self.options['s3']['prefix'])
+        else:
+            self._prefix = ''
+
+    def __s3_options(self):
+        return {k: v for k, v in self.options['s3'].items() if k not in self.__s3_exclude}
+
+    def send(self):
+        # TODO: All the myriad of authentication options, probably handled in
+        # init
+        s3 = boto3.client('s3')
+
+        if self.errors:
+            error_msg = '\n\n'.join(self.errors)
+
+            if 'error_log' not in self.options['s3']:
+                error_log = self.default_error_log
+            else:
+                error_log = self.options['s3']['error_log']
+
+            s3.put_object(
+                Body=arbiter.parse_string(error_log, errors=error_msg),
+                Bucket=self.options['s3']['bucket'],
+                Key=f"{self._prefix}error.log"
+            )
+
+        for file in self.files:
+            s3.upload_file(
+                file,
+                self.options['s3']['bucket'],
+                f"{self._prefix}{file}"
+            )

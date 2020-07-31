@@ -64,11 +64,12 @@ LOG_FILENAME = None
 LOG_FILEMODE = None
 LOG_ENCODING = None
 
-__SYSTEM_HANDLERS = ['CSV', 'JSON', 'EMAIL']
+__SYSTEM_HANDLERS = ['CSV', 'JSON', 'EMAIL', 'S3']
 __HANDLERS = {
     'CSV': handlers.CsvFile,
     'JSON': handlers.JsonFile,
-    'EMAIL': handlers.EmailHandler
+    'EMAIL': handlers.EmailHandler,
+    'S3': handlers.S3Handler
 }
 HANDLERS = registry.Registry(__SYSTEM_HANDLERS, __HANDLERS)
 
