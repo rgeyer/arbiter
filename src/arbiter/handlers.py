@@ -421,6 +421,11 @@ class S3Handler(NotificationHandler):
             "authentication"
         ]
 
+        self.bucket = config.get('bucket', None)
+
+        if not self.bucket:
+            raise ValueError("An s3 bucket is required for an s3 notification handler")
+
         if 'prefix' in self.options['s3']:
             self._prefix = arbiter.parse_string(self.options['s3']['prefix'])
         else:
@@ -444,13 +449,13 @@ class S3Handler(NotificationHandler):
 
             s3.put_object(
                 Body=arbiter.parse_string(error_log, errors=error_msg),
-                Bucket=self.options['s3']['bucket'],
+                Bucket=self.bucket,
                 Key=f"{self._prefix}error.log"
             )
 
         for file in self.files:
             s3.upload_file(
                 file,
-                self.options['s3']['bucket'],
+                self.bucket,
                 f"{self._prefix}{file}"
             )
