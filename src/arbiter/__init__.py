@@ -73,11 +73,12 @@ __HANDLERS = {
 }
 HANDLERS = registry.Registry(__SYSTEM_HANDLERS, __HANDLERS)
 
-__SYSTEM_AUTH = ['AUTH', 'BASIC']
+__SYSTEM_AUTH = ['AUTH', 'BASIC', 'AWS']
 __AUTH = {
     'AUTH': auth.auth_string,
     'BASIC': auth.basic,
-    'ENV': auth.os_env
+    'ENV': auth.os_env,
+    'AWS': auth.aws
 }
 AUTH = registry.Registry(__SYSTEM_AUTH, __AUTH)
 

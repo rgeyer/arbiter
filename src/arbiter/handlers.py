@@ -403,7 +403,8 @@ class S3Handler(NotificationHandler):
     __slots__ = [
         'default_body_error',
         '_bucket',
-        '_prefix'
+        '_prefix',
+        '_s3client'
     ]
 
     def __init__(self, config, **kwargs):
@@ -416,30 +417,30 @@ class S3Handler(NotificationHandler):
         """
 
         self.__s3_exclude = [
-            "region",
-            "bucket",
+            "profile",
             "prefix",
             "authentication"
         ]
 
+        auth = arbiter.get_auth(self.authentication)
+
         self._bucket = config.get('bucket', None)
+        self._prefix = ''
+        self._botosession = None
+        self._s3client = auth['auth'].client('s3')
 
         if not self._bucket:
             raise ValueError("An s3 bucket is required for an s3 notification handler")
 
-        if 's3' in self.options and 'prefix' in self.options['s3']:
-            self._prefix = arbiter.parse_string(self.options['s3']['prefix'])
-        else:
-            self._prefix = ''
+        if 's3' in self.options:
+            if 'prefix' in self.options['s3']:
+                self._prefix = arbiter.parse_string(self.options['s3']['prefix'])
+
 
     def __s3_options(self):
         return {k: v for k, v in self.options['s3'].items() if k not in self.__s3_exclude}
 
     def send(self):
-        # TODO: All the myriad of authentication options, probably handled in
-        # init
-        s3 = boto3.client('s3')
-
         if self.errors:
             error_msg = '\n\n'.join(self.errors)
 
@@ -448,14 +449,14 @@ class S3Handler(NotificationHandler):
             else:
                 error_log = self.options['s3']['error_log']
 
-            s3.put_object(
+            self._s3client.put_object(
                 Body=arbiter.parse_string(error_log, errors=error_msg),
                 Bucket=self._bucket,
                 Key=f"{self._prefix}error.log"
             )
 
         for file in self.files:
-            s3.upload_file(
+            self._s3client.upload_file(
                 file,
                 self._bucket,
                 f"{self._prefix}{file}"
